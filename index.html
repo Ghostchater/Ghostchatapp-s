@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>GhostChat 👻</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        /* Your full CSS from earlier (unchanged) */
+        /* ... [Already included in your message, so not repeated here for brevity] ... */
+    </style>
+</head>
+<body>
+    <div class="chat-wrapper">
+        <section id="login-section">
+            <h1>Welcome to GhostChat 👻</h1>
+            <input type="text" id="usernameInput" placeholder="Enter your username" aria-label="Username" />
+            <button id="loginBtn">Login</button>
+        </section>
+
+        <section id="pin-section" style="display:none;">
+            <h2>Enter Room PIN</h2>
+            <input type="password" id="pinInput" placeholder="Enter Room PIN" aria-label="PIN" />
+            <button id="pinBtn">Submit</button>
+            <p id="pinError" style="color: red; display: none;">Incorrect PIN. Please try again.</p>
+        </section>
+
+        <section id="chat-section" style="display:none;">
+            <header class="chat-header">
+                <h1>GhostChat</h1>
+                <span id="status-indicator" class="offline">Offline</span>
+                <button id="themeToggle" aria-label="Toggle theme">🌗</button>
+            </header>
+
+            <main id="chat-area" class="chat-area" aria-live="polite"></main>
+            <div id="typing-status" class="typing-indicator" aria-live="assertive"></div>
+
+            <footer class="input-container">
+                <input type="file" id="imageInput" accept="image/*" hidden aria-label="Select image to send" />
+                <button id="imageButton" aria-label="Send image">📷</button>
+                <input
+                    type="text"
+                    id="messageInput"
+                    placeholder="Type a message..."
+                    autocomplete="off"
+                    aria-label="Message input"
+                />
+                <button id="sendBtn" aria-label="Send message">Send</button>
+            </footer>
+        </section>
+    </div>
+
+    <script>
+        // --- Global Variables ---
+        const requiredPIN = "ghost123";
+        let attempts = 3;
+        let username = "";
+        let isTyping = false;
+        const themeToggle = document.getElementById("themeToggle");
+        const statusIndicator = document.getElementById("status-indicator");
+        const imageInput = document.getElementById("imageInput");
+        const imageButton = document.getElementById("imageButton");
+        const chatArea = document.getElementById('chat-area');
+        const typingStatusDiv = document.getElementById('typing-status');
+
+        // --- Login Section ---
+        const loginBtn = document.getElementById("loginBtn");
+        loginBtn.addEventListener("click", () => {
+            username = document.getElementById("usernameInput").value.trim();
+            if (username) {
+                document.getElementById("login-section").style.display = "none";
+                document.getElementById("pin-section").style.display = "block";
+            } else {
+                alert("Please enter a username to proceed.");
+            }
+        });
+
+        // --- PIN Section ---
+        const pinBtn = document.getElementById("pinBtn");
+        pinBtn.addEventListener("click", () => {
+            const enteredPIN = document.getElementById("pinInput").value;
+            if (enteredPIN === requiredPIN) {
+                initializeChat();
+            } else {
+                attempts--;
+                if (attempts > 0) {
+                    document.getElementById("pinError").style.display = "block";
+                } else {
+                    alert("Too many incorrect attempts. Access Denied.");
+                    document.body.innerHTML = "<h1 style='text-align:center;'>🔒 Access Denied</h1>";
+                    throw new Error("PIN Mismatch - Too many attempts");
+                }
+            }
+        });
+
+        // --- Chat Init ---
+        function initializeChat() {
+            document.getElementById("pin-section").style.display = "none";
+            document.getElementById("chat-section").style.display = "block";
+            statusIndicator.classList.remove('offline');
+            statusIndicator.classList.add('online');
+            statusIndicator.textContent = 'Online';
+
+            setTimeout(() => {
+                displayMessage("GhostChat Admin", "Welcome to GhostChat!", 'other');
+            }, 500);
+
+            setupChat();
+        }
+
+        // --- Setup Chat Behavior ---
+        function setupChat() {
+            const messageInput = document.getElementById('messageInput');
+            const sendBtn = document.getElementById('sendBtn');
+
+            sendBtn.addEventListener('click', () => {
+                const message = messageInput.value.trim();
+                if (message) {
+                    sendMessage(message);
+                    messageInput.value = '';
+                }
+            });
+
+            messageInput.addEventListener('input', () => {
+                if (messageInput.value.trim() && !isTyping) {
+                    isTyping = true;
+                    displayTypingStatus('You are typing...');
+                } else if (!messageInput.value.trim() && isTyping) {
+                    isTyping = false;
+                    displayTypingStatus('');
+                }
+            });
+
+            messageInput.addEventListener('keypress', (event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    sendBtn.click();
+                }
+            });
+
+            imageButton.addEventListener('click', () => {
+                imageInput.click();
+            });
+
+            imageInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    sendImage(file);
+                    imageInput.value = '';
+                }
+            });
+        }
+
+        function displayMessage(sender, message, type) {
+            const messageContainer = document.createElement('div');
+            messageContainer.classList.add('bubble', type);
+            const currentDate = new Date();
+            const formattedTime = formatTime(currentDate);
+            let messageContent = `<p>${message}</p><span class="message-time">${formattedTime}</span>`;
+            if (sender && type === 'other') {
+                const senderElement = document.createElement('strong');
+                senderElement.textContent = sender + ": ";
+                const paragraph = document.createElement('p');
+                paragraph.prepend(senderElement);
+                paragraph.appendChild(document.createTextNode(message));
+                messageContent = `${paragraph.outerHTML}<span class="message-time">${formattedTime}</span>`;
+            }
+            messageContainer.innerHTML = messageContent;
+            chatArea.appendChild(messageContainer);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function sendMessage(message) {
+            displayMessage("You", message, 'you');
+        }
+
+        function sendImage(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const imageUrl = e.target.result;
+                const messageContainer = document.createElement('div');
+                messageContainer.classList.add('bubble', 'you');
+                messageContainer.innerHTML = `
+                    <div class="message-image-container">
+                        <img src="${imageUrl}" alt="Sent image" class="message-image">
+                    </div>
+                    <span class="message-time">${formatTime(new Date())}</span>
+                `;
+                chatArea.appendChild(messageContainer);
+                chatArea.scrollTop = chatArea.scrollHeight;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function displayTypingStatus(status) {
+            typingStatusDiv.textContent = status;
+        }
+
+        function formatTime(date) {
+            let hours = date.getHours();
+            const minutes = date.getMinutes();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            const formattedMinutes = minutes < 10 ? '0' + minutes : minutes;
+            return hours + ':' + formattedMinutes + ' ' + ampm;
+        }
+
+        // --- THEME TOGGLE ---
+        themeToggle.onclick = () => {
+            document.body.classList.toggle("dark");
+            localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+        };
+
+        // --- Load Theme Preference ---
+        window.onload = () => {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark');
+            }
+        };
+    </script>
+</body>
+</html>
